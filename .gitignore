@@ -1,0 +1,14 @@
+treasury
+treasury_project-prefix
+**.vscode/
+build
+**/CMakeFiles
+**/cmake_install.cmake
+**/Makefile
+**/CMakeCache.txt
+**/*.abi
+**/*.wasm
+.DS_Store
+tests/node_modules
+*.json
+keys.env

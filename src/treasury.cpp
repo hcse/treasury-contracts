@@ -37,7 +37,7 @@ void treasury::setredsymbol(const symbol& redemption_symbol) {
 	config_s.set(c, get_self());
 }
 
-// ADMIN / setup actions / can be removed after setup
+// Set new treasurers after elections
 void treasury::settreasrers(const vector<name> &treasurers) {
 	vector<permissions::permission_level_weight> accounts;
 	for(name treasurer : treasurers) {

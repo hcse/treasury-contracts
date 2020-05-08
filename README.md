@@ -16,6 +16,7 @@
 ```
 ACTION settreasrers(const vector<name> &treasurers);
 ```
+>NOTE: The treasurers' account names must be in alphabetical order. I don't know why, but it will fail if not.
 
 ## Configuration
 Configuration requires:

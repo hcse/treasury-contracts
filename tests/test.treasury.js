@@ -73,6 +73,8 @@ describe('Treasury Testing', function () {
         console.log ("  HUSD Token Contract : ", eosTokenContract.name);
 
         await treasuryAccount.addPermission('eosio.code');
+        var treasuryOwner = await eoslime.Account.load(treasuryAccount.name, treasuryAccount.privateKey, 'owner');
+        await treasuryOwner.addPermission('eosio.code');
 
         // const authorityInfo = await treasuryAccount.getAuthorityInfo();
         // authorityInfo.required_auth.accounts.push({ permission: { actor: treasuryAccount, permission: "eosio.code" }, weight: 1 });
@@ -222,7 +224,8 @@ describe('Treasury Testing', function () {
 
     it('Should update the treasurers', async () => {
 
-        await treasuryContract.settreasrers ([treasurer3.name, treasurer4.name, treasurer5.name], {from: treasuryAccount});
+        const treasurerArray = [treasurer3.name, treasurer4.name, treasurer5.name];
+        await treasuryContract.settreasrers (treasurerArray.sort(), {from: treasuryAccount});
 
     });
 });

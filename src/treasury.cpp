@@ -6,7 +6,9 @@ void treasury::setconfig(
                     const map<string, string> strings,
                     const map<string, asset> assets,
                     const map<string, uint64_t> ints) {
-   	require_auth(get_self());
+	require_auth(get_self());
+
+
 
 	config_table config_s(get_self(), get_self().value);
 	Config c = config_s.get_or_create(get_self(), Config());
@@ -20,7 +22,7 @@ void treasury::setconfig(
 	config_s.set(c, get_self());
 
 	// validate for required configurations
-	string required_names[]{"token_redemption_contract"};
+	string required_names[]{"token_redemption_contract", "dao_contract"};
 	for (int i{0}; i < std::size(required_names); i++)
 	{
 		check(c.names.find(required_names[i]) != c.names.end(), "name configuration: " + required_names[i] + " is required but not provided.");
@@ -38,19 +40,36 @@ void treasury::setredsymbol(const symbol& redemption_symbol) {
 }
 
 // Set new treasurers after elections
-void treasury::settreasrers(const vector<name> &treasurers) {
+void treasury::settreasrers(vector<name> &treasurers) {
 	vector<permissions::permission_level_weight> accounts;
+
+	config_table      config_s (get_self(), get_self().value);
+   	Config c = config_s.get_or_create (get_self(), Config());	
+	const uint32_t threshold = static_cast<uint32_t>(c.ints.at("threshold"));
+	check (threshold > 0, "Threshold must be greater than 0. Threshold: " + std::to_string(threshold));
+	check (threshold <= treasurers.size(), "Threshold must be less than or equal to the number of treasurers. Threshold: " +
+		std::to_string(threshold) + "; number of treasurers attempting to set: " + std::to_string(treasurers.size()));
+
+	// DAO contract issues the treasury token, so its permission must always be equal to the threshold
+	check (c.names.find("dao_contract") != c.names.end(), "dao_contract configuration is required when updating permissions.");
+	const name dao_contract = c.names.at("dao_contract");
+	treasurers.push_back(dao_contract);
+	treasurers.push_back(get_self());
+
+	std::sort(treasurers.begin(), treasurers.end());	// accounts must be sorted
+
 	for(name treasurer : treasurers) {
-		permission_level pl = permission_level{treasurer, name("active")};
-		permissions::permission_level_weight plw = permissions::permission_level_weight {pl, 1};
+		uint16_t treas_threshold = 1;
+		name permission_name = name("active");
+		if (treasurer == dao_contract || treasurer == get_self()) {
+			treas_threshold = static_cast<uint16_t>(threshold);
+			permission_name = name("eosio.code");
+		}
+		permission_level pl = permission_level{treasurer, permission_name};
+		permissions::permission_level_weight plw = permissions::permission_level_weight {pl, treas_threshold};
 		accounts.push_back(plw);
 	} 
 
-	config_table      config_s (get_self(), get_self().value);
-   	Config c = config_s.get_or_create (get_self(), Config());
-	const uint32_t threshold = static_cast<uint32_t>(c.ints.at("threshold"));
-	check (threshold > 0, "Threshold must be greater than 0. Threshold: " + std::to_string(threshold));
-   
 	permissions::authority auth = permissions::authority{threshold, {}, accounts, {}};
 	auto update_auth_payload = std::make_tuple(get_self(), name("active"), name("owner"), auth);
 
@@ -76,7 +95,7 @@ void treasury::redeem(const name &redeemer, const asset &amount, const map<strin
 	});
 	
 	redemption_table r_t (get_self(), get_self().value);
-	r_t.emplace (get_self(), [&](auto & r) {
+	r_t.emplace (get_self(), [&](auto &r) {
 		r.redemption_id		= r_t.available_primary_key();
 		r.redeemer			= redeemer;
 		r.amount			= amount;
@@ -91,13 +110,13 @@ void treasury::addnotes (const uint64_t& redemption_id, const map<string, string
 	check (r_itr != r_t.end(), "Redemption ID is not found: " + std::to_string(redemption_id));
 	check (has_auth(r_itr->redeemer) || has_auth(get_self()), "Unauthorized. Only the redeemer or the treasury can add notes.");
 	
-	r_t.modify (r_itr, get_self(), [&](auto r) {
+	r_t.modify (r_itr, get_self(), [&](auto& r) {
 		r.notes.insert(notes.begin(), notes.end());
 	});
 }
 
 // multisig, existing treasurers, or eosio.code; to be called by treasurers, burns the tokens associated with the redemption
-void treasury::redeemed(const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes){
+void treasury::paid(const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes){
 	require_auth (get_self());
 	redemption_table r_t (get_self(), get_self().value);
 	auto r_itr = r_t.find(redemption_id);
@@ -106,7 +125,7 @@ void treasury::redeemed(const uint64_t &redemption_id, const asset& amount, cons
 		r_itr->amount.to_string() + "; Redeemed amount: " + amount.to_string());
 
 	if (amount < r_itr->amount) {
-		r_t.modify (r_itr, get_self(), [&](auto r) {
+		r_t.modify (r_itr, get_self(), [&](auto& r) {
 			r.amount -= amount;
 		});
 	} else {
@@ -165,18 +184,20 @@ void treasury::deposit ( const name& from, const name& to, const asset& quantity
    print ("\n");
 }
 
-void treasury::togglepause()
+void treasury::pause()
 {
 	require_auth(get_self());
 	config_table config_s(get_self(), get_self().value);
 	Config c = config_s.get_or_create(get_self(), Config());
-	if (c.ints.find("paused") == c.ints.end() || c.ints.at("paused") == 0)
-	{
-		c.ints["paused"] = 1;
-	}
-	else
-	{
-		c.ints["paused"] = 0;
-	}
+	c.ints["paused"] = 1;
+	config_s.set(c, get_self());
+}
+
+void treasury::unpause()
+{
+	require_auth(get_self());
+	config_table config_s(get_self(), get_self().value);
+	Config c = config_s.get_or_create(get_self(), Config());
+	c.ints["paused"] = 0;
 	config_s.set(c, get_self());
 }

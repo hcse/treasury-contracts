@@ -42,6 +42,7 @@ describe('Treasury Testing', function () {
         accounts = await eoslime.Account.createRandoms(20);
         treasuryAccount     = accounts[0];
         eosTokenAccount     = accounts[1];
+        daoAccount          = accounts[14];
         
         treasurer1          = accounts[4];
         treasurer2          = accounts[5];
@@ -55,7 +56,8 @@ describe('Treasury Testing', function () {
         redeemer5           = accounts[13];
 
         console.log (" Treasury Account     : ", treasuryAccount.name);
-        console.log (" HUSD Issuer          : ", eosTokenAccount.name)
+        console.log (" HUSD Issuer          : ", eosTokenAccount.name);
+        console.log (" DAO Contract         : ", daoAccount.name);
         console.log (" treasurer1           : ", treasurer1.name);
         console.log (" treasurer2           : ", treasurer2.name);
         console.log (" treasurer3           : ", treasurer3.name);
@@ -90,7 +92,7 @@ describe('Treasury Testing', function () {
     
         // }, { broadcast: true, sign: true, keyProvider: this.privateKey });
             
-        await treasuryContract.setconfig([{"key":"token_redemption_contract","value":eosTokenContract.name}], [], [], 
+        await treasuryContract.setconfig([{"key":"token_redemption_contract","value":eosTokenContract.name},{"key":"dao_contract","value":daoAccount.name}], [], [], 
             [{"key":"paused","value":0}, {"key":"threshold","value":2}], { from: treasuryAccount});
         // await treasuryContract.togglepause ( {from: treasuryAccount} );
         await treasuryContract.setredsymbol("2,HUSD", { from: treasuryAccount });
@@ -174,12 +176,12 @@ describe('Treasury Testing', function () {
 
     it('Should create a partial redemption', async () => {
         
-        console.log (" Redeemer ", redeemer3.name, " transfers 10.00 HUSD to Treasury account: ", treasuryAccount.name)
+        console.log (" Redeemer ", redeemer3.name, " transfers 25.00 HUSD to Treasury account: ", treasuryAccount.name)
         await eosTokenContract.transfer (redeemer3.name, treasuryAccount.name, '25.00 HUSD', "memo", { from: redeemer3 });
 
         // check that the redeemer saved a balance
         await assertTreasuryBalance(treasuryContract, redeemer3, "25.00 HUSD");
-        await treasuryContract.redeem (redeemer3.name, "15.00 HUSD", 
+        await treasuryContract.redeem (redeemer3.name, "18.00 HUSD", 
             [{"key":"my_address", "value":"<.. insert BTC address here ...>"},
             {"key":"alternative ETH address", "value":"<.. insert ETH address here ...>"}], {from: redeemer3});
 
@@ -191,16 +193,37 @@ describe('Treasury Testing', function () {
         });
         console.log ("Redemptions table: ", JSON.stringify(redemptions, null, 2));
         assert.equal (redemptions.rows[1].redeemer, redeemer3.name);
-        assert.equal (redemptions.rows[1].amount, "15.00 HUSD");
-        await assertTreasuryBalance(treasuryContract, redeemer3, "10.00 HUSD");
+        assert.equal (redemptions.rows[1].amount, "18.00 HUSD");
+        await assertTreasuryBalance(treasuryContract, redeemer3, "7.00 HUSD");
     });
 
-    it('Should process redemption and burn tokens', async () => {
+    it('Should create a partial payment on a redemption', async () => {
+        console.log (" Process redemption for ", redeemer3.name);
+      
+        // check that the redeemer saved a balance
+        await treasuryContract.paid (1, "5.00 HUSD",
+            [{"key":"sent to your ETH address", "value":"<.. insert ETH address here ...>"},
+            {"key":"transaction ID", "value":"<.. insert transaction ID here ...>"}], {from: treasuryAccount});
+
+        const redemptions = await treasuryContract.provider.eos.getTableRows({
+            code: treasuryAccount.name,
+            scope: treasuryAccount.name,
+            table: 'redemptions',
+            json: true
+        });
+        console.log ("Redemptions table: ", JSON.stringify(redemptions, null, 2));
+        assert.equal (redemptions.rows[1].redeemer, redeemer3.name);
+        assert.equal (redemptions.rows[1].amount, "13.00 HUSD");
+        await assertTreasuryBalance(treasuryContract, redeemer3, "7.00 HUSD");
+    });
+
+
+    it('Should process remaining redemption', async () => {
         
         console.log (" Process redemption for ", redeemer3.name);
       
         // check that the redeemer saved a balance
-        await treasuryContract.redeemed (1, "15.00 HUSD",
+        await treasuryContract.paid (1, "13.00 HUSD",
             [{"key":"sent to your ETH address", "value":"<.. insert ETH address here ...>"},
             {"key":"transaction ID", "value":"<.. insert transaction ID here ...>"}], {from: treasuryAccount});
 
@@ -222,10 +245,21 @@ describe('Treasury Testing', function () {
         console.log (tokenBalance);
     });
 
+    it('Should not allow setting a set of treasurers that will be unable to lock contract', async () => {
+
+        try {
+            const treasurerArray = [treasurer4.name];
+            await treasuryContract.settreasrers (treasurerArray, {from: treasuryAccount});
+        } catch (error) {
+            assert(error.includes("Threshold must be less than or equal to the number of treasurers"));
+        }
+    });
+
     it('Should update the treasurers', async () => {
 
         const treasurerArray = [treasurer3.name, treasurer4.name, treasurer5.name];
         await treasuryContract.settreasrers (treasurerArray.sort(), {from: treasuryAccount});
 
     });
+    
 });

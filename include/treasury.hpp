@@ -84,11 +84,12 @@ public:
                     const map<string, uint64_t> ints);
 
    // ACTION setconfig(const map<string, variant<name, string, asset, uint64_t>> my_values) ;
-   ACTION togglepause ();
+   ACTION pause ();
+   ACTION unpause ();
    ACTION setredsymbol(const symbol& redemption_symbol);
 
    // ADMIN / setup actions / can be removed after setup
-   ACTION settreasrers(const vector<name> &treasurers);
+   ACTION settreasrers(vector<name> &treasurers);
 
    // multisig, existing treasurers; swaps existing treasurer for a new treasurer, e.g. after an election
    // ACTION swaptreasuer(const name &old_treasurer, const name &new_treasurer, const string &notes);
@@ -100,7 +101,7 @@ public:
    ACTION addnotes (const uint64_t& redemption_id, const map<string, string> &notes);
 
    // multisig, existing treasurers, or eosio.code; to be called by treasurers, burns the tokens associated with the redemption
-   ACTION redeemed(const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes);
+   ACTION paid(const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes);
 
    // multisig, existing treasurers; calls redeemed for each redemption in the map; reduces number of multisigs needed
    ACTION redeemedmap(const map<uint64_t, string> redemptions);

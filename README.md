@@ -48,3 +48,14 @@ ACTION redeemed(const uint64_t &redemption_id, const asset& amount, const map<st
 
 ### Notes
 Redeemers or the treasury can add notes to the redemption records. This should be used to communicate any non-confidential information about the process so that it is transparent on chain.
+
+## Set Configuration
+```
+cleos -u https://test.telos.kitchen push action bank.hypha setconfig "{\"names\":[{\"key\":\"token_redemption_contract\", \"value\":\"husd.hypha\"},{\"key\":\"dao_contract\", \"value\":\"dao.hypha\"}],\"strings\":[],\"assets\":[],\"ints\":[{\"key\":\"threshold\",\"value\":3}]}" -p bank.hypha
+
+cleos -u https://api.telos.kitchen push action bank.hypha setredsymbol '["2,HUSD"]' -p bank.hypha
+```
+
+## Set Treasurers
+cleos -u https://test.telos.kitchen push action bank.hypha settreasrers '[["treasurerddd", "treasurereee", "treasurerfff", "treasurerggg", "treasurerhhh"]]' -p bank.hypha
+```

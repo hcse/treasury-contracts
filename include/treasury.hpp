@@ -63,9 +63,13 @@ public:
       asset                   amount;
       map<string, string>     notes;
       uint64_t primary_key() const { return redemption_id; }
+      uint64_t by_redeemer() const { return redeemer.value; }
    };
 
-   typedef multi_index<name("redemptions"), Redemption> redemption_table;
+   typedef multi_index<name("redemptions"), Redemption,
+      indexed_by<name("byredeemer"), 
+         const_mem_fun<Redemption, uint64_t, &Redemption::by_redeemer>>
+   > redemption_table;
 
    // workaround for bug on wildcard notification
    // https://github.com/EOSIO/eosio.cdt/issues/497#issuecomment-484691582

@@ -59,3 +59,4 @@ cleos -u https://api.telos.kitchen push action bank.hypha setredsymbol '["2,HUSD
 ## Set Treasurers
 cleos -u https://test.telos.kitchen push action bank.hypha settreasrers '[["treasurerddd", "treasurereee", "treasurerfff", "treasurerggg", "treasurerhhh"]]' -p bank.hypha
 ```
+

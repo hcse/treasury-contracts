@@ -28,9 +28,8 @@ public:
    struct [[eosio::table, eosio::contract("treasury")]] Config
    {
       // required configurations:
-      // names    :  husd_token_contract, seeds_token_contract
-      // ints     :
-      // assets   :  redemption_fee - just to discourage too many redemptions; paid back to DAO
+      // names    :  dao_contract, seeds_token_contract
+      // ints     :  threshold
       symbol                  redemption_symbol;
       map<string, name>       names;
       map<string, string>     strings;
@@ -59,56 +58,97 @@ public:
    struct [[eosio::table, eosio::contract("treasury")]] Redemption 
    {
       uint64_t                redemption_id;
-      name                    redeemer;
-      asset                   amount;
-      map<string, string>     notes;
+      name                    requestor;
+      asset                   amount_requested;
+      asset                   amount_paid;
+      map<string, string>     notes;         // notes should contain the network of the redemption plus the trx ID
+      
+      time_point requested_date = current_time_point();
+      time_point updated_date = current_time_point();
+
       uint64_t primary_key() const { return redemption_id; }
-      uint64_t by_redeemer() const { return redeemer.value; }
+      uint64_t by_requestor() const { return requestor.value; }
+      uint64_t by_requested_date() const { return requested_date.sec_since_epoch(); }
+      uint64_t by_updated_date() const { return updated_date.sec_since_epoch(); }
+      uint64_t by_amount_due() const { return amount_requested.amount - amount_paid.amount; }
    };
 
    typedef multi_index<name("redemptions"), Redemption,
-      indexed_by<name("byredeemer"), 
-         const_mem_fun<Redemption, uint64_t, &Redemption::by_redeemer>>
+      indexed_by<name("byrequestor"), 
+         const_mem_fun<Redemption, uint64_t, &Redemption::by_requestor>>
    > redemption_table;
 
-   // workaround for bug on wildcard notification
-   // https://github.com/EOSIO/eosio.cdt/issues/497#issuecomment-484691582
-   // [[eosio::on_notify("dummy::dummy")]]
-   // void dummy ();
-   // using dummy_action = eosio::action_wrapper<"dummy"_n, &swaps::dummy>;
+   struct [[eosio::table, eosio::contract("treasury")]] RedemptionPayment
+   {
+      uint64_t                payment_id;               // incrementer
+      name                    creator;             // creator of this payment, must be a treasurer
+      uint64_t                redemption_id;       // foreign key to the redemptions table
+      asset                   amount_paid;         // should always be less than or equal to the requested amount on the redemption
+
+      time_point              created_date  = current_time_point();      // date that the redemption was completed
+      time_point              confirmed_date;      // date that the redemption was completed
+
+      map<name, time_point>   attestations;        // accounts attesting that this payment was made
+      map<string, string>     notes;               // should always contain the network and transaction ID of the redemption
+      
+      uint64_t primary_key() const { return payment_id; }
+      uint64_t by_redemption() const { return redemption_id; }
+      uint64_t by_created_date() const { return created_date.sec_since_epoch(); }
+      uint64_t by_confirmed_date() const { return confirmed_date.sec_since_epoch(); }
+   };
+
+   typedef multi_index<name("payments"), RedemptionPayment,
+      indexed_by<name("byredemption"), 
+         const_mem_fun<RedemptionPayment, uint64_t, &RedemptionPayment::by_redemption>>,
+      indexed_by<name("bycreated"),
+         const_mem_fun<RedemptionPayment, uint64_t, &RedemptionPayment::by_created_date>>,
+      indexed_by<name("bycompletedt"),
+         const_mem_fun<RedemptionPayment, uint64_t, &RedemptionPayment::by_confirmed_date>>
+   > payment_table;
 
    [[eosio::on_notify("*::transfer")]] 
    void deposit(const name &from, const name &to, const asset &quantity, const string &memo);
    using transfer_action = action_wrapper<name("transfer"), &treasury::deposit>;
 
+   // ---------------- ADMIN / SETUP -------------------------
    // multisig
    ACTION setconfig(const map<string, name> names,
                     const map<string, string> strings,
                     const map<string, asset> assets,
                     const map<string, uint64_t> ints);
 
-   // ACTION setconfig(const map<string, variant<name, string, asset, uint64_t>> my_values) ;
-   ACTION pause ();
-   ACTION unpause ();
+   ACTION pauseredmp ();
+   ACTION unpauseredmp ();
+   ACTION pauseall ();
+   ACTION unpauseall ();
    ACTION setredsymbol(const symbol& redemption_symbol);
+   // ACTION backupreds ();
 
    // ADMIN / setup actions / can be removed after setup
    ACTION settreasrers(vector<name> &treasurers);
-
-   // multisig, existing treasurers; swaps existing treasurer for a new treasurer, e.g. after an election
-   // ACTION swaptreasuer(const name &old_treasurer, const name &new_treasurer, const string &notes);
+   // -----------------------------------------------------0-- 
 
    // to be called by redeemer
-   ACTION redeem(const name &redeemer, const asset &amount, const map<string, string> &notes);
+   ACTION redeem(const name &requestor, const asset &amount, const map<string, string> &notes);
 
    // add sink to a redemption request; covers any other data a user wishes to add
-   ACTION addnotes (const uint64_t& redemption_id, const map<string, string> &notes);
+   ACTION addnotesuser (const uint64_t& redemption_id, const map<string, string> &notes);
+   ACTION addnotestres (const uint64_t& redemption_id, const map<string, string> &notes);
 
-   // multisig, existing treasurers, or eosio.code; to be called by treasurers, burns the tokens associated with the redemption
-   ACTION paid(const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes);
+   // treasurer attests that the redemption was paid to the requestor
+   ACTION attestpaymnt (const name& treasurer, const uint64_t& payment_id, 
+							 const uint64_t& redemption_id, const asset& amount, const map<string, string> &notes);
 
-   // multisig, existing treasurers; calls redeemed for each redemption in the map; reduces number of multisigs needed
-   ACTION redeemedmap(const map<uint64_t, string> redemptions);
+   // when a treasurer issues a payment, s/he should also create the payment on the Telos chain
+   ACTION newpayment(const name& treasurer, const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes);
+
+private: 
+
+   permissions::authority get_treasurer_authority (vector<name> &treasurers, const uint16_t &threshold);
+   void confirm_payment (const uint64_t& redemption_id, const asset& amount);
+   void burn_tokens (const asset& amount, const string &burn_memo);
+   void add_notes (const uint64_t& redemption_id, const map<string, string> &notes) ;
+   // void setowner (const string& pubk);
 
    bool is_paused () {
       config_table      config_s (get_self(), get_self().value);
@@ -118,6 +158,15 @@ public:
       uint64_t paused = c.ints.at("paused");
       return paused == 1;
    }   
+
+   bool is_redemption_paused () {
+      config_table      config_s (get_self(), get_self().value);
+      Config c = config_s.get_or_create (get_self(), Config());   
+      check (c.ints.find ("redemption_paused") != c.ints.end(), "Contract does not have a redemption_paused configuration. Assuming it is paused. Please contact administrator.");
+         
+      uint64_t paused = c.ints.at("redemption_paused");
+      return paused == 1;
+   }
 
    void confirm_balance (const name& account, const asset& amount) {
 

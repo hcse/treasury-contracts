@@ -87,7 +87,7 @@ namespace treasuryspace
          uint64_t redemption_id; // foreign key to the redemptions table
          asset amount_paid;      // should always be less than or equal to the requested amount on the redemption
 
-         time_point created_date = current_time_point(); // date that the redemption was completed
+         time_point created_date = current_time_point(); // date that the redemption was created
          time_point confirmed_date;                      // date that the redemption was completed
 
          map<name, time_point> attestations; // accounts attesting that this payment was made
@@ -117,13 +117,16 @@ namespace treasuryspace
                        const map<string, asset> assets,
                        const map<string, uint64_t> ints);
 
-      ACTION pauseredmp();
-      ACTION unpauseredmp();
-      ACTION pauseall();
-      ACTION unpauseall();
+      ACTION pauseredmp(const string &note);
+      ACTION unpauseredmp(const string &note);
+      ACTION pauseall(const string &note);
+      ACTION unpauseall(const string & note);
       ACTION setredsymbol(const symbol &redemption_symbol);
 
       ACTION settreasrers(vector<name> & treasurers);
+
+      // DEV ONLY
+      // ACTION reset (name nothing);
       // -----------------------------------------------------0--
 
       // to be called by redeemer

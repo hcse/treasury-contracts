@@ -42,7 +42,7 @@ void treasury::setredsymbol(const symbol &redemption_symbol)
     config_s.set(c, get_self());
 }
 
-void treasury::pauseredmp()
+void treasury::pauseredmp(const string &note)
 {
     require_auth(get_self());
     config_table config_s(get_self(), get_self().value);
@@ -51,7 +51,7 @@ void treasury::pauseredmp()
     config_s.set(c, get_self());
 }
 
-void treasury::unpauseredmp()
+void treasury::unpauseredmp(const string &note)
 {
     require_auth(get_self());
     config_table config_s(get_self(), get_self().value);
@@ -60,7 +60,7 @@ void treasury::unpauseredmp()
     config_s.set(c, get_self());
 }
 
-void treasury::pauseall()
+void treasury::pauseall(const string &note)
 {
     require_auth(get_self());
     config_table config_s(get_self(), get_self().value);
@@ -69,7 +69,7 @@ void treasury::pauseall()
     config_s.set(c, get_self());
 }
 
-void treasury::unpauseall()
+void treasury::unpauseall(const string &note)
 {
     require_auth(get_self());
     config_table config_s(get_self(), get_self().value);
@@ -109,6 +109,21 @@ void treasury::confirm_balance(const name &account, const asset &amount)
                                       b_itr->funds.to_string() + ".  Transaction requires: " + amount.to_string());
 }
 
+// DEV ONLY
+// void treasury::reset (name nothing) {
+//     require_auth (get_self());
+//     redemption_table r_t (get_self(), get_self().value);
+//     auto r_itr = r_t.begin();
+//     while (r_itr != r_t.end()) {
+//         r_itr = r_t.erase (r_itr);
+//     }
+
+//     payment_table p_t (get_self(), get_self().value);
+//     auto p_itr = p_t.begin();
+//     while (p_itr != p_t.end()) {
+//         p_itr = p_t.erase (p_itr);
+//     }
+// }
 // void treasury::backupreds () {
 // 	require_auth (get_self());
 // 	oredemption_table r_t (get_self(), get_self().value);

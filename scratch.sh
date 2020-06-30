@@ -3,7 +3,13 @@ eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json trans
 eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha redeem '{"requestor":"johnnyhypha1", "amount":"1.00 HUSD", "notes":[{"key":"note #1","value":"please redeem"}]}' -p johnnyhypha1
 
 # payment added by the treasurer that handled it
-eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha newpayment '{"treasurer":"treasureriii", "amount":"1.00 HUSD", "notes":[{"key":"trx_id","value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},{"key":"network","value":"BTC"}]}' -p treasureriii
+eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha newpayment '{"treasurer":"treasureriii", "redemption_id":0, "amount":"1.00 HUSD", "notes":[{"key":"trx_id","value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},{"key":"network","value":"BTC"}]}' -p treasureriii
+
+# attest that a payment was made (as a witness treasurer)
+eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha attestpaymnt '{"treasurer":"treasurermmm", "redemption_id":0, "payment_id":0, "amount":"1.00 HUSD", "notes":[{"key":"trx_id","value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},{"key":"network","value":"BTC"}]}' -p treasurermmm
+
+# remove an attestation 
+eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha removeattest '{"treasurer":"treasureriii", "payment_id":0, "notes":[{"key":"reason","value":"I made a mistake and need to remove my attestation"}]}' -p treasureriii
 
 # redemption should be removed
 eosc -u https://test.telos.kitchen get table bank.hypha bank.hypha redemptions

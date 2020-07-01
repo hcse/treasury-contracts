@@ -130,7 +130,7 @@ namespace treasuryspace
       // -----------------------------------------------------0--
 
       // to be called by redeemer
-      ACTION redeem(const name &requestor, const asset &amount, const map<string, string> &notes);
+      ACTION redeem(const name &redeemer, const asset &amount, const map<string, string> &notes);
 
       // add sink to a redemption request; covers any other data a user wishes to add
       ACTION addnotesuser(const uint64_t &redemption_id, const map<string, string> &notes);

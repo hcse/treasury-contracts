@@ -79,6 +79,8 @@ void treasury::add_notes (const uint64_t& redemption_id, const map<string, strin
 	r_t.modify (r_itr, get_self(), [&](auto& r) {
 		r.notes.insert(notes.begin(), notes.end());
 	});
+    
+    require_recipient(r_itr->requestor);
 }
 
 // this allows the redemption requestor to add notes to their request
@@ -121,6 +123,8 @@ void treasury::confirm_payment (const uint64_t& redemption_id, const asset& amou
 		r.amount_paid += amount;
 	});	
 
+    require_recipient(r_itr->requestor);
+
 	burn_tokens (amount, string("Redemption ID: " + std::to_string(redemption_id)));
 }
 
@@ -134,6 +138,12 @@ void treasury::removeattest (const name& treasurer, const uint64_t& payment_id, 
 	auto attestation = p_itr->attestations.find (treasurer);
 	check (attestation != p_itr->attestations.end(), "Treasurer: " + treasurer.to_string() + " does not have an existing attestation for payment_id: " + std::to_string(payment_id));
 	
+    redemption_table r_t (get_self(), get_self().value);
+	auto r_itr = r_t.find(p_itr->redemption_id);
+    if  (r_itr != r_t.end()) {
+        require_recipient(r_itr->requestor);
+    }
+    
 	// if this is the only attestation for this payment, remove the entire payment record
 	if (p_itr->attestations.size() == 1) {
 		p_t.erase (p_itr);
@@ -180,6 +190,11 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 			p.confirmed_date = current_time_point();
 		}
 	});
+    redemption_table r_t (get_self(), get_self().value);
+	auto r_itr = r_t.find(p_itr->redemption_id);
+    if  (r_itr != r_t.end()) {
+        require_recipient(r_itr->requestor);
+    }
 }
 
 void treasury::newpayment(const name& treasurer, const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes){
@@ -202,4 +217,6 @@ void treasury::newpayment(const name& treasurer, const uint64_t &redemption_id, 
 		p.notes = notes;
 		p.attestations[treasurer] = current_time_point();
 	});
+
+    require_recipient(r_itr->requestor);
 }

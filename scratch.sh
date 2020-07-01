@@ -19,7 +19,7 @@ eosc -u https://test.telos.kitchen get table bank.hypha bank.hypha payments
 
 
 # reset 
-eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha reset '{"nothing":"nothing"}' -p bank.hypha
+eosc -u https://api.telos.kitchen --vault-file ../.json tx create bank.hypha unpauseredmp '{"":""}' -p bank.hypha
 
 # set contract
 eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json system setcontract bank.hypha treasury/treasury.wasm treasury/treasury.abi

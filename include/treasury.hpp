@@ -123,7 +123,7 @@ namespace treasuryspace
       ACTION unpauseall(const string & note);
       ACTION setredsymbol(const symbol &redemption_symbol);
 
-      ACTION settreasrers(vector<name> & treasurers);
+      ACTION settreasrers(const vector<name> & treasurers);
 
       // DEV ONLY
       // ACTION reset (name nothing);
@@ -146,7 +146,7 @@ namespace treasuryspace
       ACTION newpayment(const name &treasurer, const uint64_t &redemption_id, const asset &amount, const map<string, string> &notes);
 
    private:
-      permissions::authority get_treasurer_authority(vector<name> & treasurers, const uint16_t &threshold);
+      permissions::authority get_treasurer_authority(const vector<name> & treasurers, const uint16_t &threshold);
       void confirm_payment(const uint64_t &redemption_id, const asset &amount);
       void burn_tokens(const asset &amount, const string &burn_memo);
       void add_notes(const uint64_t &redemption_id, const map<string, string> &notes);

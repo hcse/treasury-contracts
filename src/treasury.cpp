@@ -6,8 +6,9 @@ treasury::treasury(name self, name code, datastream<const char*> ds) : contract(
 
 treasury::~treasury() {}
 
-permissions::authority treasury::get_treasurer_authority (vector<name> &treasurers, const uint16_t &threshold)  {
+permissions::authority treasury::get_treasurer_authority (const vector<name> &treasurers, const uint16_t &threshold)  {
 	vector<permissions::permission_level_weight> accounts;
+	vector<name> sorted_treasurers = treasurers;
 
 	config_table      config_s (get_self(), get_self().value);
    	Config c = config_s.get_or_create (get_self(), Config());	
@@ -15,12 +16,12 @@ permissions::authority treasury::get_treasurer_authority (vector<name> &treasure
 	// DAO contract issues the treasury token, so its permission must always be equal to the threshold
 	check (c.names.find("dao_contract") != c.names.end(), "dao_contract configuration is required when updating permissions.");
 	const name dao_contract = c.names.at("dao_contract");
-	treasurers.push_back(dao_contract);
-	treasurers.push_back(get_self());
+	sorted_treasurers.push_back(dao_contract);
+	sorted_treasurers.push_back(get_self());
 
-	std::sort(treasurers.begin(), treasurers.end());	// accounts must be sorted
+	std::sort(sorted_treasurers.begin(), sorted_treasurers.end());	// accounts must be sorted
 
-	for(name treasurer : treasurers) {
+	for(name treasurer : sorted_treasurers) {
 		uint16_t treas_threshold = 1;
 		name permission_name = name("active");
 		if (treasurer == dao_contract || treasurer == get_self()) {
@@ -36,7 +37,7 @@ permissions::authority treasury::get_treasurer_authority (vector<name> &treasure
 }
 
 // Set new treasurers after elections
-void treasury::settreasrers(vector<name> &treasurers) {
+void treasury::settreasrers(const vector<name> &treasurers) {
 
 	require_auth (get_self());
 
@@ -50,15 +51,13 @@ void treasury::settreasrers(vector<name> &treasurers) {
 	// DAO contract issues the treasury token, so its permission must always be equal to the threshold
 	check (c.names.find("dao_contract") != c.names.end(), "dao_contract configuration is required when updating permissions.");
 
-	permissions::authority threshold_auth = get_treasurer_authority(treasurers, threshold);
 	permissions::authority singletreas_auth = get_treasurer_authority(treasurers, 1);
-
-	auto threshold_auth_payload = std::make_tuple(get_self(), name("active"), name("owner"), threshold_auth);
 	auto singletreas_auth_payload = std::make_tuple(get_self(), name("singletreas"), name("active"), singletreas_auth);
-
 	auto single_treas_action = action(permission_level{get_self(), name("owner")}, name("eosio"), name("updateauth"), singletreas_auth_payload);
-    auto threshold_action = action(permission_level{get_self(), name("owner")}, name("eosio"), name("updateauth"), threshold_auth_payload);
-
 	single_treas_action.send();
+	
+	permissions::authority threshold_auth = get_treasurer_authority(treasurers, threshold);
+	auto threshold_auth_payload = std::make_tuple(get_self(), name("active"), name("owner"), threshold_auth);
+    auto threshold_action = action(permission_level{get_self(), name("owner")}, name("eosio"), name("updateauth"), threshold_auth_payload);
 	threshold_action.send();
 }

@@ -15,6 +15,8 @@ eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx cr
 eosc -u https://test.telos.kitchen get table bank.hypha bank.hypha redemptions
 eosc -u https://test.telos.kitchen get table bank.hypha bank.hypha payments
 
+# set the list of treasurers
+eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha settreasrers '{"treasurers":["treasureriii", "treasurermmm"]}' -p bank.hypha
 
 
 
@@ -27,7 +29,11 @@ eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json syste
 
 
 ----------------------
+Private key: 5JAyz4i3DMoHJYN33vxMCNva6uAayfi3Vc1M58W2hqePbmt3cUz
+Public key: EOS77LaV4ftKXyjyF4Rnn5ECNnXG5Az6s2PKYu6t22FbZHwacqP7X
 
+Private key: 5JMaSRFGZhW92RcuQa2dvTwHmPyUQTDZTZ1iae3XpQJM6AzPaha
+Public key: EOS8Zo3btG1fMhUtensQB17L8gsALRi8VvLfFWnpFK6xSB3N95Cov
 
 eosc -u https://api.telos.kitchen --vault-file ../daoctl/hyphanewyork.json tx create bank.hypha paid '{"redemption_id":1, "amount":"1000.00 HUSD", "notes":[{"key":"trx_id","value":"0x41a8b9dcf4d217309f7adda80060ac6a324e9c4f3275d8a05eb4255becab7c22"},{"key":"network","value":"ETH-USDT"}]}' -p bank.hypha
 eosc -u https://api.telos.kitchen --vault-file ../daoctl/hyphanewyork.json tx create bank.hypha paid '{"redemption_id":3, "amount":"3584.00 HUSD", "notes":[{"key":"trx_id","value":"6e623ea774e57b5301811d8a190f27588c50179ed1a7fbdacb59bf6f3c0392ef"},{"key":"network","value":"BTC"}]}' -p bank.hypha

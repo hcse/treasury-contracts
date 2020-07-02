@@ -95,7 +95,8 @@ void treasury::addnotesuser (const uint64_t& redemption_id, const map<string, st
 // permissioned to singletreas
 // add sink to a redemption request; covers any other data a user wishes to add
 void treasury::addnotestres (const uint64_t& redemption_id, const map<string, string> &notes){
-	add_notes (redemption_id, notes);
+	require_auth (permission_level{get_self(), name("singletreas")});
+    add_notes (redemption_id, notes);
 }
 
 // when payments are confirmed by a threshold of treasurers, the corresponding tokens are burned
@@ -131,6 +132,8 @@ void treasury::confirm_payment (const uint64_t& redemption_id, const asset& amou
 // permissioned to singletreas
 void treasury::removeattest (const name& treasurer, const uint64_t& payment_id, const map<string, string> &notes) {
 	require_auth (treasurer);
+    require_auth (permission_level{get_self(), name("singletreas")});
+
 	payment_table p_t (get_self(), get_self().value);
 	auto p_itr = p_t.find (payment_id);
 	check (p_itr != p_t.end(), "Payment ID is not found: " + std::to_string(payment_id));
@@ -159,6 +162,8 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 							 const uint64_t& redemption_id, const asset& amount, const map<string, string> &notes) {
 
 	require_auth (treasurer);
+    require_auth (permission_level{get_self(), name("singletreas")});
+
 	payment_table p_t (get_self(), get_self().value);
 	auto p_itr = p_t.find (payment_id);
 	check (p_itr != p_t.end(), "payment_id not found: " + std::to_string(payment_id));
@@ -199,6 +204,8 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 
 void treasury::newpayment(const name& treasurer, const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes){
 	require_auth (treasurer);
+    require_auth (permission_level{get_self(), name("singletreas")});
+
 	redemption_table r_t (get_self(), get_self().value);
 	auto r_itr = r_t.find(redemption_id);
 	check (r_itr != r_t.end(), "Redemption ID is not found: " + std::to_string(redemption_id));

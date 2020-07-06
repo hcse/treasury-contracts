@@ -80,6 +80,7 @@ void treasury::add_notes (const uint64_t& redemption_id, const map<string, strin
 		r.notes.insert(notes.begin(), notes.end());
 	});
     
+	// notify requestor that a note has been added to their redemption
     require_recipient(r_itr->requestor);
 }
 
@@ -92,10 +93,9 @@ void treasury::addnotesuser (const uint64_t& redemption_id, const map<string, st
 	add_notes (redemption_id, notes);
 }
 
-// permissioned to singletreas
 // add sink to a redemption request; covers any other data a user wishes to add
 void treasury::addnotestres (const uint64_t& redemption_id, const map<string, string> &notes){
-	require_auth (permission_level{get_self(), name("singletreas")});
+    check_treasurer_approval();
     add_notes (redemption_id, notes);
 }
 
@@ -104,12 +104,12 @@ void treasury::burn_tokens (const asset& amount, const string &burn_memo) {
 
 	config_table      config_s (get_self(), get_self().value);
    	Config c = config_s.get_or_create (get_self(), Config());
-	// burn the tokens
+
 	action(
 		permission_level{get_self(), name("active")},
 		c.names.at("token_redemption_contract"), name("retire"),
 		make_tuple(amount, burn_memo))
-		.send();
+	.send();
 }
 
 // this is called when a threshold of treasurers attest to the payment
@@ -120,23 +120,31 @@ void treasury::confirm_payment (const uint64_t& redemption_id, const asset& amou
 	check (amount <= r_itr->amount_requested, "Redemption amount must be less than requested amount. Requested amount: " +
 		r_itr->amount_requested.to_string() + "; Redeemed amount: " + amount.to_string());
 
+	// increment the amount paid
 	r_t.modify (r_itr, get_self(), [&](auto& r) {
 		r.amount_paid += amount;
 	});	
 
+	// notify the requestor that treasurers have confirmed this amount paid
     require_recipient(r_itr->requestor);
 
-	burn_tokens (amount, string("Redemption ID: " + std::to_string(redemption_id)));
+	// not burning tokens at this time
+	// burn_tokens (amount, string("Redemption ID: " + std::to_string(redemption_id)));
 }
 
 // permissioned to singletreas
 void treasury::removeattest (const name& treasurer, const uint64_t& payment_id, const map<string, string> &notes) {
 	require_auth (treasurer);
-    require_auth (permission_level{get_self(), name("singletreas")});
+    check_treasurer_approval();
 
 	payment_table p_t (get_self(), get_self().value);
 	auto p_itr = p_t.find (payment_id);
 	check (p_itr != p_t.end(), "Payment ID is not found: " + std::to_string(payment_id));
+
+	// if payment has been confirmed, cannot remove attestation
+	check (p_itr->confirmed_date.sec_since_epoch() < p_itr->created_date.sec_since_epoch(), 
+		"Cannot remove an attestation from a payment that has already been confirmed. Payment confirmed at epoch time: " 
+		+ std::to_string(p_itr->confirmed_date.sec_since_epoch()));
 
 	auto attestation = p_itr->attestations.find (treasurer);
 	check (attestation != p_itr->attestations.end(), "Treasurer: " + treasurer.to_string() + " does not have an existing attestation for payment_id: " + std::to_string(payment_id));
@@ -162,11 +170,16 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 							 const uint64_t& redemption_id, const asset& amount, const map<string, string> &notes) {
 
 	require_auth (treasurer);
-    require_auth (permission_level{get_self(), name("singletreas")});
+    check_treasurer_approval();
 
 	payment_table p_t (get_self(), get_self().value);
 	auto p_itr = p_t.find (payment_id);
 	check (p_itr != p_t.end(), "payment_id not found: " + std::to_string(payment_id));
+
+	// if payment has been confirmed, no need for additional attestations
+	check (p_itr->confirmed_date.sec_since_epoch() < p_itr->created_date.sec_since_epoch(), 
+		"Cannot attest to a payment that has already been confirmed. Payment confirmed at epoch time: " 
+		+ std::to_string(p_itr->confirmed_date.sec_since_epoch()));
 
 	check (p_itr->redemption_id == redemption_id, "redemption_id does not match data on payment you are attesting to. You provided: " +
 		std::to_string(redemption_id) + "; the payment record being attested has: " + std::to_string(p_itr->redemption_id));
@@ -190,11 +203,13 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 		}
 
 		p.attestations[treasurer] = current_time_point();
-		if (p_itr->attestations.size() >= c.ints.at("threshold")) {  // we have enough attestations to clear the redemptions request
+		if (p_itr->attestations.size()+1 >= c.ints.at("threshold")) {  // we have enough attestations to clear the redemptions request
 			confirm_payment (p_itr->redemption_id, p_itr->amount_paid); 
 			p.confirmed_date = current_time_point();
 		}
 	});
+
+	// notify requestor when a treasurer attests to a payment made to them
     redemption_table r_t (get_self(), get_self().value);
 	auto r_itr = r_t.find(p_itr->redemption_id);
     if  (r_itr != r_t.end()) {
@@ -204,7 +219,7 @@ void treasury::attestpaymnt (const name& treasurer, const uint64_t& payment_id,
 
 void treasury::newpayment(const name& treasurer, const uint64_t &redemption_id, const asset& amount, const map<string, string> &notes){
 	require_auth (treasurer);
-    require_auth (permission_level{get_self(), name("singletreas")});
+    check_treasurer_approval();
 
 	redemption_table r_t (get_self(), get_self().value);
 	auto r_itr = r_t.find(redemption_id);
@@ -225,5 +240,6 @@ void treasury::newpayment(const name& treasurer, const uint64_t &redemption_id, 
 		p.attestations[treasurer] = current_time_point();
 	});
 
+	// notify requestor that a payment was made
     require_recipient(r_itr->requestor);
 }

@@ -6,38 +6,41 @@ treasury::treasury(name self, name code, datastream<const char*> ds) : contract(
 
 treasury::~treasury() {}
 
-permissions::authority treasury::get_treasurer_authority (const vector<name> &treasurers, const uint16_t &threshold)  {
-	vector<permissions::permission_level_weight> accounts;
-	vector<name> sorted_treasurers = treasurers;
-
-	config_table      config_s (get_self(), get_self().value);
-   	Config c = config_s.get_or_create (get_self(), Config());	
-
-	// DAO contract issues the treasury token, so its permission must always be equal to the threshold
-	check (c.names.find("dao_contract") != c.names.end(), "dao_contract configuration is required when updating permissions.");
-	const name dao_contract = c.names.at("dao_contract");
-	sorted_treasurers.push_back(dao_contract);
-	sorted_treasurers.push_back(get_self());
-
-	std::sort(sorted_treasurers.begin(), sorted_treasurers.end());	// accounts must be sorted
-
-	for(name treasurer : sorted_treasurers) {
-		uint16_t treas_threshold = 1;
-		name permission_name = name("active");
-		if (treasurer == dao_contract || treasurer == get_self()) {
-			treas_threshold = static_cast<uint16_t>(threshold);
-			permission_name = name("eosio.code");
+// ensure that at least one active treasurer has signed this transaction
+void treasury::check_treasurer_approval () {
+	treas_table t_t (get_self(), get_self().value);
+	auto t_itr = t_t.begin();
+	while (t_itr != t_t.end()) {
+		if (has_auth(t_itr->treasurer)) {
+			return;
 		}
-		permission_level pl = permission_level{treasurer, permission_name};
-		permissions::permission_level_weight plw = permissions::permission_level_weight {pl, treas_threshold};
-		accounts.push_back(plw);
-	} 
+		t_itr++;
+	}
+	check (false, "You must be a current treasurer to execute this action");
+}
 
-	return permissions::authority{threshold, {}, accounts, {}};
+void treasury::addtreasrer(const name &treasurer, map<string, string> &notes) {
+	require_auth (get_self());
+	treas_table t_t (get_self(), get_self().value);
+	auto t_itr = t_t.find (treasurer.value);
+	check (t_itr == t_t.end(), "Account: " + treasurer.to_string() + " is already a treasurer");
+	t_t.emplace (get_self(), [&](auto &t) {
+		t.treasurer = treasurer;
+		t.notes.insert(notes.begin(), notes.end());
+		t.updated_date = current_time_point();
+	});
+}
+
+void treasury::remtreasrer(const name &treasurer, const string &note) {
+	require_auth (get_self());
+	treas_table t_t (get_self(), get_self().value);
+	auto t_itr = t_t.find (treasurer.value);
+	check (t_itr != t_t.end(), "Account: " + treasurer.to_string() + " is not a treasurer");
+	t_t.erase (t_itr);
 }
 
 // Set new treasurers after elections
-void treasury::settreasrers(const vector<name> &treasurers) {
+void treasury::settreasrers(vector<name> &treasurers, map<string, string> &notes) {
 
 	require_auth (get_self());
 
@@ -48,16 +51,8 @@ void treasury::settreasrers(const vector<name> &treasurers) {
 	check (threshold <= treasurers.size(), "Threshold must be less than or equal to the number of treasurers. Threshold: " +
 		std::to_string(threshold) + "; number of treasurers attempting to set: " + std::to_string(treasurers.size()));
 
-	// DAO contract issues the treasury token, so its permission must always be equal to the threshold
-	check (c.names.find("dao_contract") != c.names.end(), "dao_contract configuration is required when updating permissions.");
-
-	permissions::authority singletreas_auth = get_treasurer_authority(treasurers, 1);
-	auto singletreas_auth_payload = std::make_tuple(get_self(), name("singletreas"), name("active"), singletreas_auth);
-	auto single_treas_action = action(permission_level{get_self(), name("owner")}, name("eosio"), name("updateauth"), singletreas_auth_payload);
-	single_treas_action.send();
-	
-	permissions::authority threshold_auth = get_treasurer_authority(treasurers, threshold);
-	auto threshold_auth_payload = std::make_tuple(get_self(), name("active"), name("owner"), threshold_auth);
-    auto threshold_action = action(permission_level{get_self(), name("owner")}, name("eosio"), name("updateauth"), threshold_auth_payload);
-	threshold_action.send();
+  	for (std::vector<name>::iterator it = treasurers.begin() ; it != treasurers.end(); ++it) {
+		notes["system note"] = string ("added via settreasrers");
+		addtreasrer (*it, notes);
+	}
 }

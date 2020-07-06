@@ -147,6 +147,8 @@ describe('Treasury Testing', function () {
             [{"key":"paused","value":0},{"key":"redemption_paused","value":0}, {"key":"threshold","value":2}], { from: treasuryAccount});
         // await treasuryContract.togglepause ( {from: treasuryAccount} );
         await treasuryContract.setredsymbol("2,HUSD", { from: treasuryAccount });
+        // await treasuryContract.settreasrers ({"treasurers":[treasurer1,treasurer2]}, {from: treasuryAccount});
+        await treasuryContract.settreasrers ([treasurer1.name,treasurer2.name], [], {from: treasuryAccount});
 
         await eosTokenContract.create(treasuryAccount.name, '-1.00 HUSD', { from: eosTokenAccount });
 
@@ -273,8 +275,8 @@ describe('Treasury Testing', function () {
             table: 'payments',
             json: true
         });
-        // console.log ("Payments table: ", JSON.stringify(payments1, null, 2));
-        // console.log ("HUSD Supply                               : ", await getSupply(eosTokenContract))
+
+        // we are not burning at this time so supply should remain the same
         assert.equal (await getSupply(eosTokenContract), "100000.00 HUSD")
 
         try {
@@ -297,8 +299,8 @@ describe('Treasury Testing', function () {
         });
         // console.log ("Payments table: ", JSON.stringify(payments, null, 2));
 
-        // the quantity of 5 HUSD should have been burned
-        assert.equal (await getSupply(eosTokenContract), "99995.00 HUSD")
+        // we are not burning at this time so supply should remain the same
+        assert.equal (await getSupply(eosTokenContract), "100000.00 HUSD");
 
         assert.equal (payments.rows[0].creator, treasurer1.name);
         assert.equal (payments.rows[0].amount_paid, "5.00 HUSD");
@@ -307,6 +309,9 @@ describe('Treasury Testing', function () {
 
     it('Should allow a new treasurer to create a new payment for the same redemption to finalize it', async () => {
         // console.log (" Process redemption for ", redeemer3.name);
+
+        await treasuryContract.addtreasrer (treasurer3.name, [], {from: treasuryAccount});
+        await treasuryContract.addtreasrer (treasurer4.name, [], {from: treasuryAccount});
       
         await treasuryContract.newpayment (treasurer3.name, 1, "13.00 HUSD",
             [{"key":"trx_id", "value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},
@@ -328,8 +333,9 @@ describe('Treasury Testing', function () {
         assert.equal (redemptions[1].amount_requested, "18.00 HUSD");
         
         assert.equal (redemptions.length, 2);
-        // console.log ("HUSD Supply (after redemption/burning)    : ", await getSupply(eosTokenAccount))
-        assert.equal (await getSupply(eosTokenContract), "99982.00 HUSD");
+
+        // we are not burning at this time so supply should remain the same
+        assert.equal (await getSupply(eosTokenContract), "100000.00 HUSD");
     });
 
     it('Should allow a treasurer to create and then remove a payment/attestation', async () => {
@@ -368,30 +374,53 @@ describe('Treasury Testing', function () {
     it('Should allow a 2nd treasurer add and then remove an attestation', async () => {
         // console.log (" Process redemption for ", redeemer3.name);
  
-        await treasuryContract.newpayment (treasurer4.name, 2, "16.50 HUSD",
+        await treasuryContract.newpayment (treasurer4.name, 2, "0.75 HUSD",
             [{"key":"trx_id", "value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},
             {"key":"network", "value":"BTC"}], {from: treasurer4});
 
-        await treasuryContract.attestpaymnt (treasurer5.name, 2, 2, "16.50 HUSD",
+        await treasuryContract.attestpaymnt (treasurer1.name, 2, 2, "0.75 HUSD",
             [{"key":"trx_id", "value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},
-            {"key":"network", "value":"BTC"}], {from: treasurer5});
+            {"key":"network", "value":"BTC"}], {from: treasurer1});
 
         let payments = await getPayments (treasuryContract);   
         // console.log ("Before removing attestation: ", JSON.stringify(payments, null, 2));
         assert.equal (payments.length, 3);
         assert.equal (payments[2].creator, treasurer4.name);
-        assert.equal (payments[2].amount_paid, "16.50 HUSD");
+        assert.equal (payments[2].amount_paid, "0.75 HUSD");
         assert.equal (payments[2].attestations.length, 2);
         
-        await treasuryContract.removeattest (treasurer4.name, 2, 
-            [{"key":"reason", "value":"this is a different reason than the prior test"}], {from: treasurer4});
+        try {
+            await treasuryContract.removeattest (treasurer4.name, 2, 
+                [{"key":"reason", "value":"this is a different reason than the prior test"}], {from: treasurer4});
+        } catch (error) {
+            assert(error.includes("Cannot remove an attestation from a payment that has already been confirmed"));
+        } 
 
         payments = await getPayments (treasuryContract);
         // console.log ("After removing attestation: ", JSON.stringify(payments, null, 2));
         assert.equal (payments.length, 3);
         assert.equal (payments[2].creator, treasurer4.name);
-        assert.equal (payments[2].amount_paid, "16.50 HUSD");
-        assert.equal (payments[2].attestations.length, 1);
+        assert.equal (payments[2].amount_paid, "0.75 HUSD");
+        assert.equal (payments[2].attestations.length, 2);
+    });
+
+    it('Should allow a treasurer to add newpayment and then remove it by deleting their attestation', async () => {
+ 
+        await treasuryContract.newpayment (treasurer4.name, 2, "0.55 HUSD",
+            [{"key":"trx_id", "value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},
+            {"key":"network", "value":"BTC"}], {from: treasurer4});
+
+        let payments = await getPayments (treasuryContract);   
+        assert.equal (payments.length, 4);
+        assert.equal (payments[3].creator, treasurer4.name);
+        assert.equal (payments[3].amount_paid, "0.55 HUSD");
+        assert.equal (payments[3].attestations.length, 1);
+        
+        await treasuryContract.removeattest (treasurer4.name, 3, 
+            [{"key":"reason", "value":"this is a different reason than the prior test"}], {from: treasurer4});
+
+        payments = await getPayments (treasuryContract);
+        assert.equal (payments.length, 3);
     });
 
     // it('Should not allow setting a set of treasurers that will be unable to lock contract', async () => {

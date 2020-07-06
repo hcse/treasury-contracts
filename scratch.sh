@@ -76,22 +76,31 @@ cleos -u https://test.telos.kitchen push action bank.hypha paid '{"redemption_id
 cleos -u https://test.telos.kitchen push action bank.hypha paid '{"redemption_id":7, "amount":"4.00 HUSD", "notes":[{"key":"trx_id","value":"77af928d57e7666436e31c8c0b5e73f9b95a7b2d478600881281b3b69427775a"},{"key":"network","value":"BTC"}]}' -p bank.hypha
 
 
-cleos -u https://test.telos.kitchen push action eosio updateauth '{
+eosc -u https://api.telos.kitchen --vault-file ../daoctl/dao.hypha.json tx create eosio updateauth '{
     "account": "bank.hypha",
     "permission": "active",
     "parent": "owner",
     "auth": {
-        "keys": [
-            {
-                "key": "EOS7PJ3hWdozwGZPdTFvuZhAvPakuKTGy4SJfweLGB7Pgu9sU9aW7",
-                "weight": 1
-            }
-        ],
+        "keys": [],
         "threshold": 1,
         "accounts": [
             {
                 "permission": {
-                    "actor": "hypha",
+                    "actor": "bank.hypha",
+                    "permission": "eosio.code"
+                },
+                "weight": 1
+            },
+            {
+                "permission": {
+                    "actor": "dao.hypha",
+                    "permission": "active"
+                },
+                "weight": 1
+            },
+            {
+                "permission": {
+                    "actor": "dao.hypha",
                     "permission": "eosio.code"
                 },
                 "weight": 1
@@ -99,7 +108,7 @@ cleos -u https://test.telos.kitchen push action eosio updateauth '{
         ],
         "waits": []
     }
-}' -p hypha@owner
+}' -p bank.hypha@owner
 
 cleos -u https://api.telos.kitchen push action eosio updateauth '{
     "account": "alice.tk",

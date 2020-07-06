@@ -106,6 +106,25 @@ namespace treasuryspace
                           >
           payment_table;
 
+      struct [[eosio::table, eosio::contract("treasury")]] Treasurer
+      {
+         name treasurer;
+         map<string, string> notes; 
+         time_point created_date = current_time_point();
+         time_point updated_date = current_time_point();
+
+         uint64_t primary_key() const { return treasurer.value; }
+         uint64_t by_created_date() const { return created_date.sec_since_epoch(); }
+         uint64_t by_updated_date() const { return updated_date.sec_since_epoch(); }
+      };
+
+      typedef multi_index<name("treasurers"), Treasurer,
+         indexed_by<name("bycreated"), const_mem_fun<Treasurer, uint64_t, &Treasurer::by_created_date>>,    
+         indexed_by<name("byupdated"), const_mem_fun<Treasurer, uint64_t, &Treasurer::by_updated_date>>
+         >
+      treas_table;
+
+
       [[eosio::on_notify("*::transfer")]] void deposit(const name &from, const name &to, const asset &quantity, const string &memo);
       using transfer_action = action_wrapper<name("transfer"), &treasury::deposit>;
 
@@ -122,8 +141,12 @@ namespace treasuryspace
       ACTION pauseall(const string &note);
       ACTION unpauseall(const string & note);
       ACTION setredsymbol(const symbol &redemption_symbol);
+      ACTION setthreshold(const uint64_t &threshold);
 
-      ACTION settreasrers(const vector<name> & treasurers);
+      ACTION settreasrers(vector<name> & treasurers, map<string, string> &notes);
+      ACTION addtreasrer(const name &treasurer, map<string, string> &notes );
+      ACTION remtreasrer(const name &treasurer, const string &note );
+
 
       // DEV ONLY
       // ACTION reset (name nothing);
@@ -153,6 +176,7 @@ namespace treasuryspace
       bool is_paused();
       bool is_redemption_paused();
       void confirm_balance(const name &account, const asset &amount);
+      void check_treasurer_approval ();
    };
 
 } // namespace treasuryspace

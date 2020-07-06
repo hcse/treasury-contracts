@@ -18,6 +18,9 @@ eosc -u https://test.telos.kitchen get table bank.hypha bank.hypha payments
 # set the list of treasurers
 eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json tx create bank.hypha settreasrers '{"treasurers":["treasureriii", "treasurermmm"]}' -p bank.hypha
 
+eosc -u https://api.telos.kitchen --vault-file hyphanewyork.json tx create bank.hypha settreasrers '{"treasurers":["cometogether", "hyphanewyork", "illumination","joachimstroh", "thealchemist"],"notes":[{"key":"note1","value":"initial treasurer election"}]}' -p bank.hypha@active
+
+eosc -u https://api.telos.kitchen --vault-file ../daoctl/hyphanewyork.json tx create bank.hypha setthreshold '{"threshold":3}' -p bank.hypha
 
 
 # reset 
@@ -25,6 +28,8 @@ eosc -u https://api.telos.kitchen --vault-file ../.json tx create bank.hypha unp
 
 # set contract
 eosc -u https://test.telos.kitchen --vault-file ../eosc-testnet-vault.json system setcontract bank.hypha treasury/treasury.wasm treasury/treasury.abi
+
+
 
 
 
@@ -72,7 +77,7 @@ cleos -u https://test.telos.kitchen push action bank.hypha paid '{"redemption_id
 
 
 cleos -u https://test.telos.kitchen push action eosio updateauth '{
-    "account": "hypha",
+    "account": "bank.hypha",
     "permission": "active",
     "parent": "owner",
     "auth": {

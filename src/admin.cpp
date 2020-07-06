@@ -31,6 +31,16 @@ void treasury::setconfig(
     }
 }
 
+void treasury::setthreshold(const uint64_t &threshold) {
+    require_auth(get_self());
+
+    config_table config_s(get_self(), get_self().value);
+    Config c = config_s.get_or_create(get_self(), Config());
+
+    c.ints["threshold"] = threshold;
+    config_s.set(c, get_self());
+}
+
 void treasury::setredsymbol(const symbol &redemption_symbol)
 {
     require_auth(get_self());
